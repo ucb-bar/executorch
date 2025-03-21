@@ -98,7 +98,7 @@ ET_NORETURN void et_pal_abort(void) {
  * @retval Timestamp value in system ticks.
  */
 et_timestamp_t et_pal_current_ticks(void) {
-  _ASSERT_PAL_INITIALIZED();
+  // _ASSERT_PAL_INITIALIZED();
   auto systemCurrentTime = std::chrono::steady_clock::now();
   return std::chrono::duration_cast<std::chrono::nanoseconds>(
              systemCurrentTime - systemStartTime)
@@ -138,7 +138,7 @@ void et_pal_emit_log_message(
     size_t line,
     const char* message,
     ET_UNUSED size_t length) {
-  _ASSERT_PAL_INITIALIZED();
+  // _ASSERT_PAL_INITIALIZED();
 
   // Not all platforms have ticks == nanoseconds, but this one does.
   timestamp /= 1000; // To microseconds
@@ -157,18 +157,18 @@ void et_pal_emit_log_message(
   //
   // Clients who want to change the format or add other fields can override this
   // weak implementation of et_pal_emit_log_message.
-  fprintf(
-      ET_LOG_OUTPUT_FILE,
-      "%c %02u:%02u:%02u.%06lu executorch:%s:%zu] %s\n",
-      level,
-      hour,
-      min,
-      sec,
-      us,
-      filename,
-      line,
-      message);
-  fflush(ET_LOG_OUTPUT_FILE);
+  // fprintf(
+  //     ET_LOG_OUTPUT_FILE,
+  //     "%c %02u:%02u:%02u.%06lu executorch:%s:%zu] %s\n",
+  //     level,
+  //     hour,
+  //     min,
+  //     sec,
+  //     us,
+  //     filename,
+  //     line,
+  //     message);
+  // fflush(ET_LOG_OUTPUT_FILE);
 }
 
 /**

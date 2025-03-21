@@ -97,10 +97,10 @@ et_timestamp_t get_log_timestamp();
 ET_PRINTFLIKE(6, 0)
 void vlogf(
     LogLevel level,
-    et_timestamp_t timestamp,
+    unsigned long timestamp,
     const char* filename,
     const char* function,
-    size_t line,
+    unsigned long line,
     const char* format,
     va_list args);
 
