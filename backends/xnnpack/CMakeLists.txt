@@ -92,7 +92,7 @@ target_include_directories(
                            ${EXECUTORCH_ROOT}/third-party/flatbuffers/include
 )
 
-set(xnnpack_third_party pthreadpool cpuinfo)
+set(xnnpack_third_party pthreadpool) # cpuinfo
 
 include(cmake/Dependencies.cmake)
 
@@ -111,17 +111,17 @@ target_include_directories(
   xnnpack_backend
   PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/third-party/pthreadpool/include
 )
-target_include_directories(
-  xnnpack_backend
-  PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/third-party/cpuinfo/include
-)
+# target_include_directories(
+#   xnnpack_backend
+#   PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/third-party/cpuinfo/include
+# )
 target_compile_options(xnnpack_backend PUBLIC ${_common_compile_options})
 target_link_options_shared_lib(xnnpack_backend)
 
 list(APPEND xnn_executor_runner_libs xnnpack_backend)
 
 # ios can only build library but not binary
-if(NOT CMAKE_TOOLCHAIN_FILE MATCHES ".*(iOS|ios\.toolchain)\.cmake$")
+if(EXECUTORCH_BUILD_EXECUTOR_RUNNER AND NOT CMAKE_TOOLCHAIN_FILE MATCHES ".*(iOS|ios\.toolchain)\.cmake$")
   #
   # xnn_executor_runner: Like executor_runner but with XNNPACK, the binary will
   # be at ${CMAKE_BINARY_DIR}/backends/xnnpack

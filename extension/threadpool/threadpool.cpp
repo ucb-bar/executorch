@@ -15,7 +15,7 @@
 #include <executorch/extension/threadpool/threadpool_guard.h>
 #include <executorch/runtime/platform/assert.h>
 
-#include <cpuinfo.h>
+#include <unistd.h>
 
 namespace executorch::extension::threadpool {
 
@@ -96,8 +96,7 @@ void ThreadPool::run(
 // get_threadpool is not thread safe due to leak_corrupted_threadpool
 // Make this part threadsafe: TODO(kimishpatel)
 ThreadPool* get_threadpool() {
-  ET_CHECK_MSG(cpuinfo_initialize(), "cpuinfo initialization failed");
-  int num_threads = cpuinfo_get_processors_count();
+  int num_threads = sysconf(_SC_NPROCESSORS_ONLN);
   /*
    * For llvm-tsan, holding limit for the number of locks for a single thread
    * is 63 (because of comparison < 64 instead of <=). pthreadpool's worst
@@ -112,20 +111,20 @@ ThreadPool* get_threadpool() {
 
 // Inheriting from old threadpool to get around segfault issue
 // commented above at child_atfork
-#if !(defined(WIN32))
-  // @lint-ignore CLANGTIDY facebook-hte-std::once_flag
-  static std::once_flag flag;
-  // @lint-ignore CLANGTIDY facebook-hte-std::call_once
-  std::call_once(
-      flag, []() { pthread_atfork(nullptr, nullptr, child_atfork); });
-  if ET_UNLIKELY (leak_corrupted_threadpool) {
-    leak_corrupted_threadpool = false;
-    if (auto leaked = threadpool.release()) {
-      auto t = leaked->get_thread_count();
-      threadpool = std::make_unique<ThreadPool>(t);
-    }
-  }
-#endif
+// #if !(defined(WIN32))
+//   // @lint-ignore CLANGTIDY facebook-hte-std::once_flag
+//   static std::once_flag flag;
+//   // @lint-ignore CLANGTIDY facebook-hte-std::call_once
+//   std::call_once(
+//       flag, []() { pthread_atfork(nullptr, nullptr, child_atfork); });
+//   if ET_UNLIKELY (leak_corrupted_threadpool) {
+//     leak_corrupted_threadpool = false;
+//     if (auto leaked = threadpool.release()) {
+//       auto t = leaked->get_thread_count();
+//       threadpool = std::make_unique<ThreadPool>(t);
+//     }
+//   }
+// #endif
   return threadpool.get();
 }
 
