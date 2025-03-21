@@ -14,7 +14,7 @@
 #include <executorch/runtime/executor/pte_data_map.h>
 
 #include <memory>
-#include <mutex>
+#include <posix_mutex>
 
 #pragma clang diagnostic ignored "-Wglobal-constructors"
 

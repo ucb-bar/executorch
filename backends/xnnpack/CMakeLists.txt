@@ -93,7 +93,7 @@ target_include_directories(
     $<BUILD_INTERFACE:${EXECUTORCH_ROOT}/third-party/flatbuffers/include>
 )
 
-set(xnnpack_third_party pthreadpool extension_threadpool cpuinfo)
+set(xnnpack_third_party pthreadpool) # cpuinfo
 
 include(cmake/Dependencies.cmake)
 
@@ -111,10 +111,10 @@ target_include_directories(
   xnnpack_backend
   PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/third-party/pthreadpool/include
 )
-target_include_directories(
-  xnnpack_backend
-  PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/third-party/cpuinfo/include
-)
+# target_include_directories(
+#   xnnpack_backend
+#   PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/third-party/cpuinfo/include
+# )
 target_compile_options(xnnpack_backend PUBLIC ${_common_compile_options})
 executorch_target_link_options_shared_lib(xnnpack_backend)
 

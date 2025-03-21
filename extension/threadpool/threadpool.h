@@ -10,7 +10,7 @@
 
 #include <functional>
 #include <memory>
-#include <mutex>
+#include <posix_mutex>
 
 #include <pthreadpool.h>
 
