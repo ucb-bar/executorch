@@ -21,13 +21,14 @@
 	url = https://github.com/Maratyszcza/FXdiv.git
 [submodule "backends/xnnpack/third-party/XNNPACK"]
 	path = backends/xnnpack/third-party/XNNPACK
-	url = https://github.com/google/XNNPACK.git
+	url = https://github.com/ucb-bar/XNNPACK.git
+	branch = zephyr
 [submodule "backends/xnnpack/third-party/cpuinfo"]
 	path = backends/xnnpack/third-party/cpuinfo
 	url = https://github.com/pytorch/cpuinfo.git
 [submodule "backends/xnnpack/third-party/pthreadpool"]
 	path = backends/xnnpack/third-party/pthreadpool
-	url = https://github.com/Maratyszcza/pthreadpool.git
+	url = https://github.com/google/pthreadpool.git
 [submodule "extension/llm/third-party/abseil-cpp"]
 	path = extension/llm/third-party/abseil-cpp
 	url = https://github.com/abseil/abseil-cpp.git
