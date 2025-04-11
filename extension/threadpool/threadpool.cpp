@@ -129,9 +129,9 @@ ThreadPool* get_threadpool() {
 }
 
 pthreadpool_t get_pthreadpool() {
-  if (NoThreadPoolGuard::is_enabled()) {
-    return nullptr;
-  }
+  // if (NoThreadPoolGuard::is_enabled()) {
+  //   return nullptr;
+  // }
   ThreadPool* const threadpool = get_threadpool();
   ET_CHECK_MSG(threadpool, "Failed to acquire an instance of ThreadPool!");
   return threadpool->threadpool_.get();
