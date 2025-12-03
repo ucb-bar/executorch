@@ -322,10 +322,18 @@ check_required_options_on(
   EXECUTORCH_SELECT_OPS_MODEL
 )
 
-check_required_options_on(
-  IF_ON EXECUTORCH_BUILD_XNNPACK REQUIRES EXECUTORCH_BUILD_CPUINFO
-  EXECUTORCH_BUILD_PTHREADPOOL
-)
+# For Zephyr builds, XNNPACK can work without CPUINFO (we use sysconf instead)
+# and without external PTHREADPOOL (we use extension_threadpool instead)
+# Check if we're building for Zephyr by checking if Zephyr package is found or ZEPHYR_BASE is set
+if(Zephyr_FOUND OR DEFINED ENV{ZEPHYR_BASE} OR TARGET zephyr_interface)
+  # Zephyr build: XNNPACK can work without CPUINFO and without external PTHREADPOOL
+  # No requirements check needed for Zephyr
+else()
+  check_required_options_on(
+    IF_ON EXECUTORCH_BUILD_XNNPACK REQUIRES EXECUTORCH_BUILD_CPUINFO
+    EXECUTORCH_BUILD_PTHREADPOOL
+  )
+endif()
 
 check_conflicting_options_on(
   IF_ON EXECUTORCH_BUILD_ARM_BAREMETAL CONFLICTS_WITH

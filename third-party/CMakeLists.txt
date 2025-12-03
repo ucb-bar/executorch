@@ -6,7 +6,10 @@
 
 set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
 add_subdirectory(json)
-add_subdirectory(gflags)
+# Skip gflags for Zephyr builds (not needed for embedded systems)
+if(NOT (Zephyr_FOUND OR DEFINED ENV{ZEPHYR_BASE} OR TARGET zephyr_interface))
+  add_subdirectory(gflags)
+endif()
 
 if(EXECUTORCH_BUILD_PYBIND)
   add_subdirectory(pybind11)

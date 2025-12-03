@@ -119,49 +119,59 @@ target_compile_options(xnnpack_backend PUBLIC ${_common_compile_options})
 executorch_target_link_options_shared_lib(xnnpack_backend)
 
 executorch_move_interface_include_directories_to_build_time_only(XNNPACK)
-install(
-  TARGETS xnnpack_backend xnnpack_schema
-  EXPORT ExecuTorchTargets
-  DESTINATION ${CMAKE_INSTALL_LIBDIR}
-  INCLUDES
-  DESTINATION ${_common_include_directories}
-)
 
-# Without this, XNNPACK fails to install because of a failure to find
-# backends/xnnpack/include/xnnpack.h.
-set_target_properties(XNNPACK PROPERTIES PUBLIC_HEADER "")
+# For Zephyr builds, skip install() since we're building embedded code and dependencies may not be available
+if(NOT (Zephyr_FOUND OR DEFINED ENV{ZEPHYR_BASE} OR TARGET zephyr_interface))
+  install(
+    TARGETS xnnpack_backend xnnpack_schema
+    EXPORT ExecuTorchTargets
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    INCLUDES
+    DESTINATION ${_common_include_directories}
+  )
 
-set_target_properties(cpuinfo PROPERTIES PUBLIC_HEADER "")
-executorch_move_interface_include_directories_to_build_time_only(fxdiv)
-executorch_move_interface_include_directories_to_build_time_only(pthreadpool)
-executorch_move_interface_include_directories_to_build_time_only(
-  pthreadpool_interface
-)
-install(
-  TARGETS XNNPACK
-          xnnpack-base
-          xnnpack-allocator
-          xnnpack-cache
-          xnnpack-hardware-config
-          xnnpack-indirection
-          xnnpack-memory
-          xnnpack-microkernel-utils
-          xnnpack-microparams-init
-          xnnpack-mutex
-          xnnpack-normalization
-          xnnpack-operators
-          xnnpack-operator-run
-          xnnpack-operator-utils
-          xnnpack-pack-lh
-          xnnpack-packing
-          xnnpack-sanitizers
-          xnnpack-subgraph
-          xnnpack-datatype
-          xnnpack-reference-ukernels
-          xnnpack-logging
-  EXPORT ExecuTorchTargets
-  DESTINATION ${CMAKE_INSTALL_LIBDIR}
-)
+  # Without this, XNNPACK fails to install because of a failure to find
+  # backends/xnnpack/include/xnnpack.h.
+  set_target_properties(XNNPACK PROPERTIES PUBLIC_HEADER "")
+
+  # Only set cpuinfo properties if cpuinfo target exists (not for Zephyr builds)
+  if(TARGET cpuinfo)
+    set_target_properties(cpuinfo PROPERTIES PUBLIC_HEADER "")
+  endif()
+  executorch_move_interface_include_directories_to_build_time_only(fxdiv)
+  executorch_move_interface_include_directories_to_build_time_only(pthreadpool)
+  executorch_move_interface_include_directories_to_build_time_only(
+    pthreadpool_interface
+  )
+  install(
+    TARGETS XNNPACK
+            xnnpack-base
+            xnnpack-allocator
+            xnnpack-cache
+            xnnpack-hardware-config
+            xnnpack-indirection
+            xnnpack-memory
+            xnnpack-microkernel-utils
+            xnnpack-microparams-init
+            xnnpack-mutex
+            xnnpack-normalization
+            xnnpack-operators
+            xnnpack-operator-run
+            xnnpack-operator-utils
+            xnnpack-pack-lh
+            xnnpack-packing
+            xnnpack-sanitizers
+            xnnpack-subgraph
+            xnnpack-datatype
+            xnnpack-reference-ukernels
+            xnnpack-logging
+    EXPORT ExecuTorchTargets
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}
+  )
+else()
+  # For Zephyr builds, just set the properties without install
+  set_target_properties(XNNPACK PROPERTIES PUBLIC_HEADER "")
+endif()
 if(BUILD_TESTING)
   add_subdirectory(test)
 endif()

@@ -6,7 +6,8 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-#include <sys/sysconf.h>
+#include <cstdint>
+#include <unistd.h>
 
 namespace executorch::extension::cpuinfo {
 

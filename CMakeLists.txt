@@ -48,6 +48,17 @@
 # TODO Lower to 3.24 when XNNPACK dependency is updated to include
 # https://github.com/google/XNNPACK/commit/c690daa67f883e1b627aadf7684c06797e9a0684
 cmake_minimum_required(VERSION 3.29)
+
+# Preserve ABI flags from parent project (e.g., Zephyr) before calling project()
+# This is important for RISC-V builds where -mabi=lp64d must be consistent
+if(DEFINED ENV{ZEPHYR_BASE} OR TARGET zephyr_interface)
+  # Save ABI-related flags from parent project before project() resets them
+  string(REGEX MATCHALL "-mabi=[^ ]+" EXECUTORCH_PRESERVED_ABI_FLAGS "${CMAKE_CXX_FLAGS}")
+  string(REGEX MATCHALL "-march=[^ ]+" EXECUTORCH_PRESERVED_ARCH_FLAGS "${CMAKE_CXX_FLAGS}")
+  string(REGEX MATCHALL "-mcmodel=[^ ]+" EXECUTORCH_PRESERVED_CMODEL_FLAGS "${CMAKE_CXX_FLAGS}")
+  set(EXECUTORCH_PRESERVED_FLAGS "${EXECUTORCH_PRESERVED_ABI_FLAGS} ${EXECUTORCH_PRESERVED_ARCH_FLAGS} ${EXECUTORCH_PRESERVED_CMODEL_FLAGS}")
+endif()
+
 project(executorch)
 
 set(EXECUTORCH_ROOT ${CMAKE_CURRENT_SOURCE_DIR})
@@ -160,6 +171,67 @@ if(EXECUTORCH_OPTIMIZE_SIZE)
 else()
   # -O2: Moderate opt.
   set(CMAKE_CXX_FLAGS_RELEASE "-O2 ${CMAKE_CXX_FLAGS_RELEASE}")
+endif()
+
+# Restore ABI flags from parent project (e.g., Zephyr) if they were preserved
+# Also try to get flags from zephyr_interface or app target if available
+# Zephyr sets ABI flags via target properties, not CMAKE_CXX_FLAGS
+if(TARGET zephyr_interface)
+  get_target_property(ZEPHYR_INTERFACE_OPTS zephyr_interface INTERFACE_COMPILE_OPTIONS)
+  if(ZEPHYR_INTERFACE_OPTS)
+    foreach(opt IN LISTS ZEPHYR_INTERFACE_OPTS)
+      if(opt MATCHES "^-mabi=|^-march=|^-mcmodel=")
+        list(APPEND EXECUTORCH_PRESERVED_FLAGS "${opt}")
+      endif()
+    endforeach()
+  endif()
+endif()
+
+# Also check the app target if it exists (used in executor_runner)
+if(TARGET app)
+  get_target_property(APP_OPTS app INTERFACE_COMPILE_OPTIONS)
+  if(APP_OPTS)
+    foreach(opt IN LISTS APP_OPTS)
+      if(opt MATCHES "^-mabi=|^-march=|^-mcmodel=")
+        list(APPEND EXECUTORCH_PRESERVED_FLAGS "${opt}")
+      endif()
+    endforeach()
+  endif()
+  # Also check compile options (not just interface)
+  get_target_property(APP_COMPILE_OPTS app COMPILE_OPTIONS)
+  if(APP_COMPILE_OPTS)
+    foreach(opt IN LISTS APP_COMPILE_OPTS)
+      if(opt MATCHES "^-mabi=|^-march=|^-mcmodel=")
+        list(APPEND EXECUTORCH_PRESERVED_FLAGS "${opt}")
+      endif()
+    endforeach()
+  endif()
+endif()
+
+# For RISC-V Zephyr builds, if we still don't have flags, apply standard RISC-V 64-bit hardfloat flags
+# This is a fallback when targets aren't available yet
+if((DEFINED ENV{ZEPHYR_BASE} OR TARGET zephyr_interface) AND NOT EXECUTORCH_PRESERVED_FLAGS)
+  # Check if we're using riscv64 compiler
+  if(CMAKE_CXX_COMPILER MATCHES "riscv64")
+    # Apply standard RISC-V 64-bit hardfloat ABI flags
+    set(EXECUTORCH_PRESERVED_FLAGS "-mabi=lp64d;-march=rv64imafdc_zicsr_zifencei;-mcmodel=medany")
+    message(STATUS "Applied standard RISC-V 64-bit hardfloat ABI flags for ExecuTorch (fallback)")
+  endif()
+endif()
+
+# Remove duplicates and apply flags globally
+if(EXECUTORCH_PRESERVED_FLAGS)
+  list(REMOVE_DUPLICATES EXECUTORCH_PRESERVED_FLAGS)
+  string(REPLACE ";" " " EXECUTORCH_PRESERVED_FLAGS_STR "${EXECUTORCH_PRESERVED_FLAGS}")
+  # Apply to all flag variables to ensure consistency
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${EXECUTORCH_PRESERVED_FLAGS_STR}")
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${EXECUTORCH_PRESERVED_FLAGS_STR}")
+  set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} ${EXECUTORCH_PRESERVED_FLAGS_STR}")
+  set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} ${EXECUTORCH_PRESERVED_FLAGS_STR}")
+  set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} ${EXECUTORCH_PRESERVED_FLAGS_STR}")
+  set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} ${EXECUTORCH_PRESERVED_FLAGS_STR}")
+  set(CMAKE_ASM_FLAGS "${CMAKE_ASM_FLAGS} ${EXECUTORCH_PRESERVED_FLAGS_STR}")
+  message(STATUS "Applied ABI flags for ExecuTorch: ${EXECUTORCH_PRESERVED_FLAGS_STR}")
 endif()
 
 if(EXECUTORCH_BUILD_TESTS)
@@ -692,7 +764,10 @@ if(EXECUTORCH_BUILD_EXTENSION_TENSOR)
   list(APPEND _executorch_extensions extension_tensor)
 endif()
 
-if(EXECUTORCH_BUILD_PTHREADPOOL AND EXECUTORCH_BUILD_CPUINFO)
+# For Zephyr builds, extension_threadpool can be built without cpuinfo and pthreadpool
+# (we use sysconf and extension_threadpool's own implementation)
+if((EXECUTORCH_BUILD_PTHREADPOOL AND EXECUTORCH_BUILD_CPUINFO) OR 
+   (Zephyr_FOUND OR DEFINED ENV{ZEPHYR_BASE} OR TARGET zephyr_interface))
   add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/extension/threadpool)
 endif()
 
@@ -1028,9 +1103,12 @@ else()
 endif()
 target_link_libraries(executorch_kernels INTERFACE ${_executorch_kernels})
 
-install(TARGETS executorch_backends executorch_extensions executorch_kernels
-        EXPORT ExecuTorchTargets
-)
+# For Zephyr builds, skip install() since we're building embedded code
+if(NOT (Zephyr_FOUND OR DEFINED ENV{ZEPHYR_BASE} OR TARGET zephyr_interface))
+  install(TARGETS executorch_backends executorch_extensions executorch_kernels
+          EXPORT ExecuTorchTargets
+  )
+endif()
 
 if(EXECUTORCH_BUILD_EXECUTOR_RUNNER)
   # Baseline libraries that executor_runner will link against.

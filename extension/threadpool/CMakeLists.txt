@@ -25,28 +25,41 @@ add_library(
                        cpuinfo_utils.cpp
 )
 target_link_libraries(
-  extension_threadpool PUBLIC executorch_core cpuinfo pthreadpool
+  extension_threadpool PUBLIC executorch_core
 )
+# For Zephyr builds, cpuinfo and pthreadpool are not available
+if(TARGET cpuinfo)
+  target_link_libraries(extension_threadpool PUBLIC cpuinfo)
+  target_include_directories(
+    extension_threadpool
+    PUBLIC
+      $<BUILD_INTERFACE:${EXECUTORCH_ROOT}/backends/xnnpack/third-party/cpuinfo/include>
+  )
+endif()
+if(TARGET pthreadpool)
+  target_link_libraries(extension_threadpool PUBLIC pthreadpool)
+  target_include_directories(
+    extension_threadpool
+    PUBLIC
+      $<BUILD_INTERFACE:${EXECUTORCH_ROOT}/backends/xnnpack/third-party/pthreadpool/include>
+  )
+endif()
 target_include_directories(
   extension_threadpool PUBLIC ${_common_include_directories}
-)
-target_include_directories(
-  extension_threadpool
-  PUBLIC
-    $<BUILD_INTERFACE:${EXECUTORCH_ROOT}/backends/xnnpack/third-party/cpuinfo/include>
-    $<BUILD_INTERFACE:${EXECUTORCH_ROOT}/backends/xnnpack/third-party/pthreadpool/include>
 )
 target_compile_definitions(extension_threadpool PUBLIC ET_USE_THREADPOOL)
 target_compile_options(extension_threadpool PUBLIC ${_common_compile_options})
 
-# Install libraries
-install(
-  TARGETS extension_threadpool
-  EXPORT ExecuTorchTargets
-  DESTINATION lib
-  INCLUDES
-  DESTINATION ${_common_include_directories}
-)
+# Install libraries (skip for Zephyr builds)
+if(NOT (Zephyr_FOUND OR DEFINED ENV{ZEPHYR_BASE} OR TARGET zephyr_interface))
+  install(
+    TARGETS extension_threadpool
+    EXPORT ExecuTorchTargets
+    DESTINATION lib
+    INCLUDES
+    DESTINATION ${_common_include_directories}
+  )
+endif()
 
 if(BUILD_TESTING)
   add_subdirectory(test)
