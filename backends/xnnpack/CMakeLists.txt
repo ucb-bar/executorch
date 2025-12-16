@@ -119,9 +119,8 @@ target_compile_options(xnnpack_backend PUBLIC ${_common_compile_options})
 executorch_target_link_options_shared_lib(xnnpack_backend)
 
 executorch_move_interface_include_directories_to_build_time_only(XNNPACK)
-
-# For Zephyr builds, skip install() since we're building embedded code and dependencies may not be available
-if(NOT (Zephyr_FOUND OR DEFINED ENV{ZEPHYR_BASE} OR TARGET zephyr_interface))
+# Skip install for Zephyr builds - install targets not needed and dependencies may not be in export set
+if(NOT (DEFINED ENV{ZEPHYR_BASE} OR TARGET zephyr_interface))
   install(
     TARGETS xnnpack_backend xnnpack_schema
     EXPORT ExecuTorchTargets
@@ -129,20 +128,22 @@ if(NOT (Zephyr_FOUND OR DEFINED ENV{ZEPHYR_BASE} OR TARGET zephyr_interface))
     INCLUDES
     DESTINATION ${_common_include_directories}
   )
+endif()
 
-  # Without this, XNNPACK fails to install because of a failure to find
-  # backends/xnnpack/include/xnnpack.h.
-  set_target_properties(XNNPACK PROPERTIES PUBLIC_HEADER "")
+# Without this, XNNPACK fails to install because of a failure to find
+# backends/xnnpack/include/xnnpack.h.
+set_target_properties(XNNPACK PROPERTIES PUBLIC_HEADER "")
 
-  # Only set cpuinfo properties if cpuinfo target exists (not for Zephyr builds)
-  if(TARGET cpuinfo)
-    set_target_properties(cpuinfo PROPERTIES PUBLIC_HEADER "")
-  endif()
-  executorch_move_interface_include_directories_to_build_time_only(fxdiv)
-  executorch_move_interface_include_directories_to_build_time_only(pthreadpool)
-  executorch_move_interface_include_directories_to_build_time_only(
-    pthreadpool_interface
-  )
+if(TARGET cpuinfo)
+  set_target_properties(cpuinfo PROPERTIES PUBLIC_HEADER "")
+endif()
+executorch_move_interface_include_directories_to_build_time_only(fxdiv)
+executorch_move_interface_include_directories_to_build_time_only(pthreadpool)
+executorch_move_interface_include_directories_to_build_time_only(
+  pthreadpool_interface
+)
+# Skip install for Zephyr builds - install targets not needed and dependencies may not be in export set
+if(NOT (DEFINED ENV{ZEPHYR_BASE} OR TARGET zephyr_interface))
   install(
     TARGETS XNNPACK
             xnnpack-base
@@ -168,9 +169,6 @@ if(NOT (Zephyr_FOUND OR DEFINED ENV{ZEPHYR_BASE} OR TARGET zephyr_interface))
     EXPORT ExecuTorchTargets
     DESTINATION ${CMAKE_INSTALL_LIBDIR}
   )
-else()
-  # For Zephyr builds, just set the properties without install
-  set_target_properties(XNNPACK PROPERTIES PUBLIC_HEADER "")
 endif()
 if(BUILD_TESTING)
   add_subdirectory(test)

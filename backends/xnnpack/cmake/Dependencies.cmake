@@ -73,8 +73,8 @@ set(XNNPACK_BUILD_ALL_MICROKERNELS
 add_subdirectory("${XNNPACK_SOURCE_DIR}")
 include_directories(SYSTEM ${XNNPACK_INCLUDE_DIR})
 list(APPEND xnnpack_third_party XNNPACK)
-# For Zephyr builds, skip install() since we're building embedded code
-if(NOT (Zephyr_FOUND OR DEFINED ENV{ZEPHYR_BASE} OR TARGET zephyr_interface))
+# Skip install for Zephyr builds - install targets not needed and dependencies may not be in export set
+if(NOT (DEFINED ENV{ZEPHYR_BASE} OR TARGET zephyr_interface))
   install(
     TARGETS xnnpack-microkernels-prod
     EXPORT ExecuTorchTargets
@@ -86,8 +86,8 @@ endif()
 
 if(EXECUTORCH_XNNPACK_ENABLE_KLEIDI)
   if(TARGET kleidiai)
-    # For Zephyr builds, skip install() since we're building embedded code
-    if(NOT (Zephyr_FOUND OR DEFINED ENV{ZEPHYR_BASE} OR TARGET zephyr_interface))
+    # Skip install for Zephyr builds - install targets not needed and dependencies may not be in export set
+    if(NOT (DEFINED ENV{ZEPHYR_BASE} OR TARGET zephyr_interface))
       install(
         TARGETS kleidiai
         EXPORT ExecuTorchTargets
