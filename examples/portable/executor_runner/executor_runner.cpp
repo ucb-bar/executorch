@@ -365,14 +365,24 @@ int main(int argc, char** argv) {
   const void* program_data = nullptr;
 
 #ifdef ET_BUNDLE_IO_ENABLED
-  std::vector<uint8_t> model_file_data = try_load_file(FLAGS_model_path);
-  uint8_t* model_pte = model_file_data.data();
-  size_t pte_size = model_file_data.size();
+  // --mmap_model exists to run a .pte whose weights exceed physical RAM, so we must NOT slurp the
+  // whole file into a resident std::vector here (that alone would OOM the board and defeat the
+  // mmap). Bundle-IO is mutually exclusive with mmap in this runner: skip bundle detection and let
+  // the MmapDataLoader branch load the program lazily.
+  std::vector<uint8_t> model_file_data;
+  uint8_t* model_pte = nullptr;
+  size_t pte_size = 0;
   constexpr size_t testset_idx = 0;
 
-  // Check for bundled IO provided model.
-  bundle_io = executorch::bundled_program::is_bundled_program(
-      reinterpret_cast<void*>(model_pte), pte_size);
+  if (!FLAGS_mmap_model) {
+    model_file_data = try_load_file(FLAGS_model_path);
+    model_pte = model_file_data.data();
+    pte_size = model_file_data.size();
+
+    // Check for bundled IO provided model.
+    bundle_io = executorch::bundled_program::is_bundled_program(
+        reinterpret_cast<void*>(model_pte), pte_size);
+  }
 
   if (bundle_io) {
     // BundleIO bpte file is provided - dig out the actual model from the data
