@@ -32,6 +32,7 @@
 
 #include <executorch/extension/data_loader/buffer_data_loader.h>
 #include <executorch/extension/data_loader/file_data_loader.h>
+#include <executorch/extension/data_loader/mmap_data_loader.h>
 #include <executorch/extension/evalue_util/print_evalue.h>
 #include <executorch/extension/flat_tensor/flat_tensor_data_map.h>
 #include <executorch/extension/runner_util/inputs.h>
@@ -65,6 +66,13 @@ DEFINE_string(
     "model.pte",
     "Model serialized in flatbuffer format.");
 DEFINE_string(data_path, "", "Path to data file (.ptd).");
+DEFINE_bool(
+    mmap_model,
+    false,
+    "mmap the .pte program (MmapDataLoader, no mlock) instead of reading it "
+    "fully into RAM. On memory-constrained boards this lets a whole-model .pte "
+    "whose constant weights exceed physical RAM run by demand-paging read-only "
+    "weight pages, which the OS can evict under pressure.");
 DEFINE_string(inputs, "", "Comma-separated list of input files");
 DEFINE_string(
     output_file,
@@ -412,18 +420,31 @@ int main(int argc, char** argv) {
     }
   }
 
-  std::unique_ptr<FileDataLoader> ptd_loader;
+  std::unique_ptr<DataLoader> ptd_loader;
   std::unique_ptr<FlatTensorDataMap> ptd_data_map;
   if (!FLAGS_data_path.empty()) {
     ET_LOG(Info, "Loading tensor data from .ptd file.");
     const char* data_path = FLAGS_data_path.c_str();
-    Result<FileDataLoader> ptd_loader_result = FileDataLoader::from(data_path);
-    ET_CHECK_MSG(
-        ptd_loader_result.ok(),
-        "FileDataLoader::from() failed for PTD file: 0x%" PRIx32,
-        (uint32_t)ptd_loader_result.error());
-    ptd_loader =
-        std::make_unique<FileDataLoader>(std::move(ptd_loader_result.get()));
+    if (FLAGS_mmap_model) {
+      Result<executorch::extension::MmapDataLoader> ptd_mmap_result =
+          executorch::extension::MmapDataLoader::from(
+              data_path,
+              executorch::extension::MmapDataLoader::MlockConfig::NoMlock);
+      ET_CHECK_MSG(
+          ptd_mmap_result.ok(),
+          "MmapDataLoader::from() failed for PTD file: 0x%" PRIx32,
+          (uint32_t)ptd_mmap_result.error());
+      ptd_loader = std::make_unique<executorch::extension::MmapDataLoader>(
+          std::move(ptd_mmap_result.get()));
+    } else {
+      Result<FileDataLoader> ptd_loader_result = FileDataLoader::from(data_path);
+      ET_CHECK_MSG(
+          ptd_loader_result.ok(),
+          "FileDataLoader::from() failed for PTD file: 0x%" PRIx32,
+          (uint32_t)ptd_loader_result.error());
+      ptd_loader =
+          std::make_unique<FileDataLoader>(std::move(ptd_loader_result.get()));
+    }
     ET_LOG(Info, "PTD file %s is loaded.", data_path);
 
     Result<FlatTensorDataMap> ptd_data_map_result =
@@ -457,6 +478,20 @@ int main(int argc, char** argv) {
         "Bundled IO PTE Model data loaded. Size: %zu bytes.",
         program_data_len);
     loader = std::make_unique<BufferDataLoader>(std::move(buffer_loader.get()));
+  } else if (FLAGS_mmap_model) {
+    // mmap the program (no mlock): the OS demand-pages the constant weight
+    // segments and can evict them under memory pressure, so a whole-model .pte
+    // larger than physical RAM still runs on a memory-constrained board.
+    Result<executorch::extension::MmapDataLoader> mmap_loader =
+        executorch::extension::MmapDataLoader::from(
+            FLAGS_model_path.c_str(),
+            executorch::extension::MmapDataLoader::MlockConfig::NoMlock);
+    ET_CHECK_MSG(
+        mmap_loader.ok(),
+        "MmapDataLoader::from() failed: 0x%" PRIx32,
+        static_cast<uint32_t>(mmap_loader.error()));
+    loader = std::make_unique<executorch::extension::MmapDataLoader>(
+        std::move(mmap_loader.get()));
   } else {
     Result<FileDataLoader> file_loader =
         FileDataLoader::from(FLAGS_model_path.c_str());

@@ -1420,8 +1420,11 @@ install(TARGETS executorch_backends executorch_extensions executorch_kernels
 
 if(EXECUTORCH_BUILD_EXECUTOR_RUNNER)
   # Baseline libraries that executor_runner will link against.
+  # extension_data_loader supplies MmapDataLoader (the runner already compiles
+  # file_data_loader.cpp directly; mmap_data_loader.cpp lives only in the lib).
   set(_executor_runner_libs executorch extension_evalue_util
                             extension_runner_util gflags executorch_backends
+                            extension_data_loader
   )
 
   if(EXECUTORCH_BUILD_EXTENSION_FLAT_TENSOR)
