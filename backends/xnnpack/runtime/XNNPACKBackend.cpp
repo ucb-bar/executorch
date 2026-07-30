@@ -168,7 +168,11 @@ class XnnpackBackend final
       auto executor = static_cast<xnnpack::delegate::XNNExecutor*>(handle);
 
 #ifdef ENABLE_XNNPACK_PROFILING
-      executor->print_avg_op_timings();
+      // NOTE: XNNExecutor has no print_avg_op_timings() in this version — the
+      // shipped call doesn't compile. Per-op timings are already emitted every
+      // invoke by XNNProfiler::end()->log_operator_timings() (see
+      // profiling/XNNProfiler.cpp), so nothing extra is needed at destroy.
+      (void)executor;
 #endif
 
 #ifdef ENABLE_XNNPACK_WEIGHTS_CACHE

@@ -1,3 +1,4 @@
+#include <cstdio>
 /*
  * Copyright (c) Meta Platforms, Inc. and affiliates.
  * All rights reserved.
@@ -128,7 +129,14 @@ ET_NODISCARD Error XNNExecutor::prepare_args(Span<EValue*> args) {
     }
   }
   // // Propagate Input Shape and Memory Plan for increased allocation
+#if defined(__riscv) && defined(ENABLE_XNNPACK_PROFILING)
+  { unsigned long _c0,_c1; __asm__ volatile("rdcycle %0":"=r"(_c0));
+    status = xnn_reshape_runtime(runtime_.get());
+    __asm__ volatile("rdcycle %0":"=r"(_c1));
+    printf("MB_XNN_RESHAPE_CYCLES=%lu\n", _c1-_c0); }
+#else
   status = xnn_reshape_runtime(runtime_.get());
+#endif
 
   ET_CHECK_OR_RETURN_ERROR(
       status == xnn_status_success,
@@ -151,8 +159,16 @@ ET_NODISCARD Error XNNExecutor::forward(BackendExecutionContext& context) {
       Internal,
       "XNNPACK Delegate did not compile correctly");
 
+#if defined(__riscv) && defined(ENABLE_XNNPACK_PROFILING)
+  unsigned long _cs0,_cs1; __asm__ volatile("rdcycle %0":"=r"(_cs0));
   xnn_status status = xnn_setup_runtime_v2(
       runtime_.get(), externals_.size(), externals_.data());
+  __asm__ volatile("rdcycle %0":"=r"(_cs1));
+  printf("MB_XNN_SETUP_CYCLES=%lu\n", _cs1-_cs0);
+#else
+  xnn_status status = xnn_setup_runtime_v2(
+      runtime_.get(), externals_.size(), externals_.data());
+#endif
 
   ET_CHECK_OR_RETURN_ERROR(
       status == xnn_status_success,
@@ -168,7 +184,14 @@ ET_NODISCARD Error XNNExecutor::forward(BackendExecutionContext& context) {
         static_cast<unsigned int>(error));
   }
 
+#if defined(__riscv) && defined(ENABLE_XNNPACK_PROFILING)
+  unsigned long _ci0,_ci1; __asm__ volatile("rdcycle %0":"=r"(_ci0));
   status = xnn_invoke_runtime(runtime_.get());
+  __asm__ volatile("rdcycle %0":"=r"(_ci1));
+  printf("MB_XNN_INVOKE_CYCLES=%lu\n", _ci1-_ci0);
+#else
+  status = xnn_invoke_runtime(runtime_.get());
+#endif
 
   error = profiler_.end();
   if (error != Error::Ok) {
